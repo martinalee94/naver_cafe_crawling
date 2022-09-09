@@ -1,0 +1,1 @@
+DRIVER_PATH = r"/Users/martina/git/naver_cafe_crawling/chromedriver"

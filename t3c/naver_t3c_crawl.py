@@ -2,20 +2,11 @@ import os
 from datetime import datetime
 
 import requests
+from bs4 import BeautifulSoup as bs
+from db.mysql import MysqlConnector, connect_url
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from bs4 import BeautifulSoup as bs
 
-from mysql import MysqlConnector, connect_url
-
-def update_post_number(mode, latest_number=None) -> int:
-    with open('/Users/martina/git/naver_t3c/last_updated_number.txt', f'{mode}') as f:
-        if mode == 'r':
-            post_number = int(f.readline())
-        elif mode == 'w':
-            f.write(latest_number)
-            post_number = latest_number
-    return post_number
 
 def insert_db(posts):
     posts_db_format = [(post['content'], "1", "141") for post in posts]
@@ -28,25 +19,15 @@ def insert_db(posts):
         print(e)
     
 
-BASE_URL = "https://cafe.naver.com/model3tesla"
-url = "/ArticleList.nhn?search.clubid=29893475&search.menuid=1&search.boardtype=L"
-response = requests.get(BASE_URL + url)
+BASE_URL = "https://cafe.naver.com/kig"
+# url = "/ArticleList.nhn?search.clubid=29893475&search.menuid=1&search.boardtype=L"
+response = requests.get(BASE_URL)
 driver_path = r"/Users/martina/git/naver_t3c/chromedriver"
 
 exec_time = datetime.now()
 
-saved_post_number = update_post_number(mode="r")
 
 if response.status_code == 200:
-    html = response.text
-    soup = bs(html, 'html.parser')
-    posts = []
-
-    board_numbers = soup.select("#main-area > div:nth-child(4) > table > tbody > tr > td.td_article > div.board-number")
-    titles = soup.select("#main-area > div:nth-child(4) > table > tbody > tr > td.td_article > div.board-list > div > a.article")
-    board_dates = soup.select("#main-area > div:nth-child(4) > table > tbody > tr > td.td_date")
-    urls = soup.select("#main-area > div:nth-child(4) > table > tbody > tr > td.td_article > div.board-list > div > a.article")
-    authors = soup.find_all("td",{"class": "p-nick"})[1:]
 
     s = Service(driver_path)
     browser = webdriver.Chrome(service=s)
@@ -94,9 +75,6 @@ if response.status_code == 200:
 else : 
     print(exec_time, response.status_code)
 
-
-# for p in posts:
-#     print(p, "\n")
 
 browser.quit()
 
