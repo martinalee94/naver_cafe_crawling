@@ -26,18 +26,18 @@ def insert_db(brokers: list):
             broker["contact"],
             broker["address"],
             broker["license"],
+            broker["url"],
+            broker["board"],
         )
         for broker in brokers
     ]
-    try:
-        with MysqlConnector(connect_url) as db:
-            query = "insert into brokers(company, manager, contact, address, busi_license) values(%s, %s, %s, %s, %s)"
-            db.executemany(query, db_format)
-    except Exception as e:
-        print(e)
+    with MysqlConnector(connect_url) as db:
+        query = "insert into peterpan_brokers(company, manager, contact, address, busi_license, post_url, board)\
+            values(%s, %s, %s, %s, %s, %s, %s) on duplicate key update posts_cnt = posts_cnt + 1"
+        db.executemany(query, db_format)
 
 
-def check_each_house_info(navigation, browser, browser2):
+def check_each_house_info(navigation, browser, browser2, board):
     for navi in navigation:
         browser.get(navi)
         print(navi)
@@ -102,7 +102,9 @@ def check_each_house_info(navigation, browser, browser2):
                     .text.split(":")[-1]
                     .strip()
                 )
-                if not broker_info["license"] in license_check:
+                broker_info["url"] = house_link
+                broker_info["board"] = board[1:]
+                if broker_info["contact"]:
                     brokers_info.append(broker_info)
             except Exception as e:
                 print(e)
@@ -121,7 +123,7 @@ def get_board_house_list(board, browser, browser2):
     )
     navigation = [navi.get_attribute("href") for navi in navigation]
     while len(navigation) > 10:
-        check_each_house_info(navigation, browser, browser2)
+        check_each_house_info(navigation, browser, browser2, board)
 
         next_link = navigation[-1].get_attribute("href")
         browser.get(next_link)
@@ -133,7 +135,7 @@ def get_board_house_list(board, browser, browser2):
             By.TAG_NAME, "a"
         )
     else:
-        check_each_house_info(navigation, browser, browser2)
+        check_each_house_info(navigation, browser, browser2, board)
 
     insert_db(brokers_info)
     return
