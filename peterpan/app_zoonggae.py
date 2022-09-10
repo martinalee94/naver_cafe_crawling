@@ -14,7 +14,6 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 
 brokers_info = []
-license_check = set()
 
 
 def insert_db(brokers: list):
@@ -26,20 +25,22 @@ def insert_db(brokers: list):
             broker["contact"],
             broker["address"],
             broker["license"],
+            broker["url"],
+            broker["board"],
         )
         for broker in brokers
     ]
     try:
         with MysqlConnector(connect_url) as db:
-            query = "insert ignore into brokers(company, manager, contact, address, busi_license) values(%s, %s, %s, %s, %s)"
+            query = "insert into peterpan_brokers(company, manager, contact, address, busi_license, post_url, board)\
+                values(%s, %s, %s, %s, %s, %s, %s) on duplicate key update posts_cnt = posts_cnt + 1"
             db.executemany(query, db_format)
-        print(f"DB 저장 : {len(brokers_info)}", brokers_info)
         brokers_info = []
     except Exception as e:
         print(e)
 
 
-def check_each_house_info(navigation, browser, browser2):
+def check_each_house_info(navigation, browser, browser2, board):
     for navi in navigation:
         browser.get(navi)
         print(navi)
@@ -85,10 +86,10 @@ def check_each_house_info(navigation, browser, browser2):
                     )
                     broker_info["address"] = broker_info_div_text[2]
                     broker_info["license"] = broker_info_div_text[3].split()[-1]
-                    if not broker_info["license"] in license_check:
-                        license_check.add(broker_info["license"])
+                    broker_info["url"] = house_link
+                    broker_info["board"] = board
+                    if broker_info["contact"]:
                         brokers_info.append(broker_info)
-                        # print(broker_info)
                 except Exception as e:
                     print("broker_info 에러: ", e)
             else:
@@ -100,6 +101,7 @@ def check_each_house_info(navigation, browser, browser2):
 
 
 def get_board_house_list(board, browser, browser2):
+    check = 0
     browser.get(PETER_URL)
     board_link = browser.find_element(By.LINK_TEXT, board).get_attribute("href")
     browser.get(board_link)
@@ -107,6 +109,9 @@ def get_board_house_list(board, browser, browser2):
     browser.switch_to.frame("cafe_main")
 
     while True:
+        check += 1
+        if check > 20:
+            return
         navigation = browser.find_element(By.CLASS_NAME, "prev-next").find_elements(
             By.TAG_NAME, "a"
         )
@@ -123,14 +128,16 @@ def get_board_house_list(board, browser, browser2):
             navigation = [navi.get_attribute("href") for navi in navigation]
             break
 
-        check_each_house_info(navigation, browser, browser2)
+        check_each_house_info(navigation, browser, browser2, board)
         browser.get(next_link)
         browser.switch_to.default_content()
         WebDriverWait(browser, 5).until(
             ec.presence_of_element_located((By.ID, "cafe_main"))
         )
         browser.switch_to.frame("cafe_main")
-    check_each_house_info(navigation, browser, browser2)
+
+    check_each_house_info(navigation, browser, browser2, board)
+
     return
 
 
@@ -158,19 +165,15 @@ if __name__ == "__main__":
             "[수도권]의정부선",
         ]
         board_group.extend(boards)
-        get_board_house_list(board_group[-4], browser, browser2)
 
-        # try:
-        #     # for board in board_group:
-        #     #     get_board_house_list(board, browser, browser2)
-        #     #     brokers_info = []
-        #     get_board_house_list(board_group[-3], browser, browser2)
-
-        # except Exception as e:
-        #     print(e)
-        # finally:
-        browser.quit()
-        browser2.quit()
-
+        try:
+            for board in board_group:
+                get_board_house_list(board, browser, browser2)
+                brokers_info = []
+        except Exception as e:
+            print(e)
+        finally:
+            browser.quit()
+            browser2.quit()
     else:
         print(response.status_code)
